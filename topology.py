@@ -9,13 +9,23 @@ from ryu.lib.packet import ether_types
 import socket
 import random
 
+def dhcp_option(tag, value):
+    """
+    Create a DHCP option with a specific tag and value.
+    :param tag: The option tag (e.g., 1 for subnet mask).
+    :param value: The option value in binary format.
+    :return: A tuple representing the DHCP option.
+    """
+    return dhcp.option(tag=tag, value=value)
+
+
 class DHCPServer(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super(DHCPServer, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
-        self.dhcp_server_ip = "192.168.1.1"  # DHCP Server IP
+        self.dhcp_server_ip = "192.168.227.1"  # DHCP Server IP
         self.dhcp_server_mac = '00:11:22:33:44:55'  # DHCP Server MAC
         self.ip_pool = self.generate_ip_pool()  # IP Pool
         self.mac_to_ip = {}  # MAC-to-IP mapping
@@ -77,7 +87,7 @@ class DHCPServer(app_manager.RyuApp):
         """Generate a pool of IP addresses within the range 192.168.1.1 to 192.168.1.255."""
         ip_pool = []
         for i in range(2, 255):  # Exclude the DHCP server IP (192.168.1.1)
-            ip_pool.append(f"192.168.1.{i}")
+            ip_pool.append(f"192.168.227.{i}")
         return ip_pool
 
     def assign_ip(self, mac_address):
@@ -266,7 +276,7 @@ class DHCPServer(app_manager.RyuApp):
         self.install_ip_flow(datapath, self.dhcp_assigned_ip, dhcp_pkt.yiaddr, in_port, datapath.ofproto.OFPP_CONTROLLER)
 
     def create_dhcp_offer(self, eth_pkt, dhcp_pkt, assigned_ip):
-        # Create a DHCP Offer with dynamically assigned IP
+        """Create a DHCP Offer with dynamically assigned IP."""
         offer_pkt = packet.Packet()
 
         eth_dst = eth_pkt.src
@@ -275,13 +285,17 @@ class DHCPServer(app_manager.RyuApp):
         ip = ipv4.ipv4(src=self.dhcp_server_ip, dst="255.255.255.255", proto=socket.IPPROTO_UDP)
         udp_layer = udp.udp(src_port=67, dst_port=68)
 
-        # Create DHCP offer packet
-        offer_dhcp = dhcp.dhcp(  # Fixed here, use the dhcp.dhcp class instead
+        # Subnet mask option
+        subnet_mask = dhcp_option(tag=1, value=b'\xff\xff\xff\x00')  # 255.255.255.0 in binary
+
+        # DHCP offer
+        offer_dhcp = dhcp.dhcp(
             op=dhcp.DHCP_OFFER,
             xid=dhcp_pkt.xid,
             chaddr=dhcp_pkt.chaddr,
             yiaddr=assigned_ip,
-            siaddr=self.dhcp_server_ip
+            siaddr=self.dhcp_server_ip,
+            options=dhcp.options([subnet_mask])  # Include subnet mask in options
         )
         offer_pkt.add_protocol(ethernet.ethernet(dst=eth_dst, src=eth_src, ethertype=ether_types.ETH_TYPE_IP))
         offer_pkt.add_protocol(ip)
@@ -291,8 +305,8 @@ class DHCPServer(app_manager.RyuApp):
         offer_pkt.serialize()
         return offer_pkt
 
-    def create_dhcp_ack(self, dhcp_pkt, datapath, in_port):
-        # Create a DHCP Ack packet
+    def create_dhcp_ack(self, dhcp_pkt, assigned_ip):
+        """Create a DHCP Ack packet."""
         ack_pkt = packet.Packet()
 
         eth_dst = dhcp_pkt.chaddr
@@ -301,12 +315,17 @@ class DHCPServer(app_manager.RyuApp):
         ip = ipv4.ipv4(src=self.dhcp_server_ip, dst="255.255.255.255", proto=socket.IPPROTO_UDP)
         udp_layer = udp.udp(src_port=67, dst_port=68)
 
-        ack_dhcp = dhcp.dhcp(  # Fixed here, use the dhcp.dhcp class instead
+        # Subnet mask option
+        subnet_mask = dhcp_option(tag=1, value=b'\xff\xff\xff\x00')  # 255.255.255.0 in binary
+
+        # DHCP ack
+        ack_dhcp = dhcp.dhcp(
             op=dhcp.DHCP_ACK,
             xid=dhcp_pkt.xid,
             chaddr=dhcp_pkt.chaddr,
-            yiaddr=dhcp_pkt.yiaddr,
-            siaddr=self.dhcp_server_ip
+            yiaddr=assigned_ip,
+            siaddr=self.dhcp_server_ip,
+            options=dhcp.options([subnet_mask])  # Include subnet mask in options
         )
         ack_pkt.add_protocol(ethernet.ethernet(dst=eth_dst, src=eth_src, ethertype=ether_types.ETH_TYPE_IP))
         ack_pkt.add_protocol(ip)
