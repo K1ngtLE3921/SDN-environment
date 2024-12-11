@@ -59,7 +59,7 @@ def detect_dhcp_poisoning(pcap_file):
         for source, count in source_counts.items():
             if count > 10:
                 print(f"Warning: Potential DHCP poisoning detected! Source {source} appears {count} times.")
-                print("Potential DHCP poisoning packets:")
+                print("Sample packets:")
                 for pkt_info in suspicious_packets[:5]:  # Print up to 5 packets
                     print(f"  - {pkt_info}")
 
@@ -89,7 +89,7 @@ def detect_arp_poisoning(pcap_file):
             if len(packets) > 5:
                 warning_issued = True
                 print(f"Warning: Potential ARP poisoning detected! Message '{message}' appears {len(packets)} times.")
-                print("Potential ARP poisoning packets:")
+                print("Sample packets:")
                 for pkt in packets[:5]:  # Print up to 5 packets
                     print(f"  - {pkt.summary()}")
 
@@ -101,9 +101,26 @@ def detect_arp_poisoning(pcap_file):
     except Exception as e:
         print(f"An error occurred while analyzing the pcap file: {e}")
 
-# Example usage
 if __name__ == "__main__":
-    pcap_file_path = "/home/akd/Desktop/Envrionment/DAST tool/SDN-environment/network_traffic.pcap"  # Replace with the path to your pcap file
-    reader(pcap_file_path)
-    detect_dhcp_poisoning(pcap_file_path)
-    detect_arp_poisoning(pcap_file_path)
+    while True:
+        print("\nSelect an option:")
+        print("1. Reader (Count protocols)")
+        print("2. Detect DHCP Poisoning")
+        print("3. Detect ARP Poisoning")
+        print("Type 'exit' to quit.")
+        choice = input("Enter your choice: ").strip()
+
+        if choice.lower() == 'exit':
+            print("Exiting the program.")
+            break
+
+        pcap_file_path = input("Enter the path to the pcap file: ").strip()
+
+        if choice == '1':
+            reader(pcap_file_path)
+        elif choice == '2':
+            detect_dhcp_poisoning(pcap_file_path)
+        elif choice == '3':
+            detect_arp_poisoning(pcap_file_path)
+        else:
+            print("Invalid option. Please try again.")
