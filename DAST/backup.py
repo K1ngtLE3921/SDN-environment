@@ -1,8 +1,8 @@
 from scapy.all import rdpcap
-from scapy.layers.l2 import Ether, ARP
+from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, UDP
 from scapy.layers.dhcp import BOOTP, DHCP
-from collections import Counter, defaultdict
+from collections import Counter
 
 def reader(pcap_file):
     try:
@@ -71,39 +71,8 @@ def detect_dhcp_poisoning(pcap_file):
     except Exception as e:
         print(f"An error occurred while analyzing the pcap file: {e}")
 
-def detect_arp_poisoning(pcap_file):
-    try:
-        packets = rdpcap(pcap_file)  # Read packets from the pcap file
-        arp_replies = defaultdict(list)  # Track identical ARP reply messages and the packets
-
-        # Populate the map with ARP reply packet details
-        for pkt in packets:
-            if pkt.haslayer(ARP) and pkt[ARP].op == 2:  # ARP reply (op=2)
-                message = f"{pkt[ARP].psrc} is at {pkt[ARP].hwsrc}"
-                arp_replies[message].append(pkt)
-
-        # Detect ARP reply messages that appear more than 5 times
-        print("\nARP Poisoning Detection:")
-        warning_issued = False
-        for message, packets in arp_replies.items():
-            if len(packets) > 5:
-                warning_issued = True
-                print(f"Warning: Potential ARP poisoning detected! Message '{message}' appears {len(packets)} times.")
-                print("Potential ARP poisoning packets:")
-                for pkt in packets[:5]:  # Print up to 5 packets
-                    print(f"  - {pkt.summary()}")
-
-        if not warning_issued:
-            print("No ARP poisoning detected.")
-
-    except FileNotFoundError:
-        print(f"Error: File {pcap_file} not found.")
-    except Exception as e:
-        print(f"An error occurred while analyzing the pcap file: {e}")
-
 # Example usage
 if __name__ == "__main__":
     pcap_file_path = "/home/akd/Desktop/Envrionment/DAST tool/SDN-environment/network_traffic.pcap"  # Replace with the path to your pcap file
     reader(pcap_file_path)
     detect_dhcp_poisoning(pcap_file_path)
-    detect_arp_poisoning(pcap_file_path)
