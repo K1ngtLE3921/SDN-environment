@@ -6,8 +6,10 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet, ipv4, arp, dhcp, udp
 from ryu.lib.packet import ether_types
+from scapy.utils import PcapWriter
 import socket
 import random
+import os
 
 def dhcp_option(tag, value):
     """
@@ -30,6 +32,10 @@ class DHCPServer(app_manager.RyuApp):
         self.ip_pool = self.generate_ip_pool()  # IP Pool
         self.mac_to_ip = {}  # MAC-to-IP mapping
         self.arp_table = {}  # IP-to-MAC mapping (ARP table)
+
+        pcap_file = "network_traffic.pcap"
+        self.pcap_writer = PcapWriter(pcap_file, append=True, sync=True)
+        self.logger.info(f"PCAP file initialized at {os.path.abspath(pcap_file)}")
 
     def handle_arp_request(self, datapath, in_port, arp_pkt, eth):
         """Handle incoming ARP requests and generate ARP replies."""
@@ -156,6 +162,8 @@ class DHCPServer(app_manager.RyuApp):
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
+
+        self.save_packet_to_pcap(pkt)
 
         self.logger.info(f"Packet received: src_mac={eth.src}, dst_mac={eth.dst}, in_port={in_port}")
 
@@ -357,3 +365,15 @@ class DHCPServer(app_manager.RyuApp):
         )
         actions = [parser.OFPActionOutput(out_port)]
         self.add_flow(datapath, 10, match, actions)
+
+    def save_packet_to_pcap(self, pkt):
+        """
+        Save the received packet to the PCAP file.
+        :param pkt: Ryu packet object.
+        """
+        try:
+            scapy_pkt = pkt.data  # Raw packet data from Ryu
+            self.pcap_writer.write(scapy_pkt)  # Write to PCAP file
+            self.logger.info("Packet written to PCAP file.")
+        except Exception as e:
+            self.logger.error(f"Failed to write packet to PCAP file: {e}")
