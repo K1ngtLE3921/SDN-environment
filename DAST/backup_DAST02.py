@@ -127,6 +127,7 @@ def send_dhcp_flood(target_ip, iface):
     except Exception as e:
         print(f"An error occurred during DHCP flooding: {e}")
 
+
 def send_arp_flood(target_ip, spoof_ip, target_mac, iface):
     try:
         start_time = time.time()
@@ -141,29 +142,6 @@ def send_arp_flood(target_ip, spoof_ip, target_mac, iface):
     except Exception as e:
         print(f"An error occurred during ARP flooding: {e}")
 
-def detect_dos_attacks(pcap_file):
-    try:
-        packets = rdpcap(pcap_file)  # Read packets from the pcap file
-        ip_counts = Counter()  # Count occurrences of source IPs
-
-        for pkt in packets:
-            if pkt.haslayer(IP):
-                ip_counts[pkt[IP].src] += 1
-
-        # Detect potential DoS attacks based on packet frequency
-        print("\nDoS Attack Detection:")
-        for ip, count in ip_counts.items():
-            if count > 1000:  # Threshold for potential DoS attack
-                print(f"Warning: Potential DoS attack detected! Source IP {ip} sent {count} packets.")
-
-        if not any(count > 1000 for count in ip_counts.values()):
-            print("No DoS attacks detected.")
-
-    except FileNotFoundError:
-        print(f"Error: File {pcap_file} not found.")
-    except Exception as e:
-        print(f"An error occurred while analyzing the pcap file: {e}")
-
 if __name__ == "__main__":
     while True:
         print("\nSelect an option:")
@@ -172,7 +150,6 @@ if __name__ == "__main__":
         print("3. Detect ARP Poisoning")
         print("4. Send DHCP Flood (30 seconds)")
         print("5. Send ARP Flood (30 seconds)")
-        print("6. Detect DoS Attacks")
         print("Type 'exit' to quit.")
         choice = input("Enter your choice: ").strip()
 
@@ -180,7 +157,7 @@ if __name__ == "__main__":
             print("Exiting the program.")
             break
 
-        if choice in ['1', '2', '3', '6']:
+        if choice in ['1', '2', '3']:
             pcap_file_path = input("Enter the path to the pcap file: ").strip()
 
             if choice == '1':
@@ -189,8 +166,6 @@ if __name__ == "__main__":
                 detect_dhcp_poisoning(pcap_file_path)
             elif choice == '3':
                 detect_arp_poisoning(pcap_file_path)
-            elif choice == '6':
-                detect_dos_attacks(pcap_file_path)
 
         elif choice == '4':
             target_ip = input("Enter the target IP address: ").strip()
