@@ -59,7 +59,7 @@ def detect_dhcp_poisoning(pcap_file):
         for source, count in source_counts.items():
             if count > 10:
                 print(f"Warning: Potential DHCP poisoning detected! Source {source} appears {count} times.")
-                print("Sample packets:")
+                print("Potential DHCP poisoning packets:")
                 for pkt_info in suspicious_packets[:5]:  # Print up to 5 packets
                     print(f"  - {pkt_info}")
 
@@ -89,7 +89,7 @@ def detect_arp_poisoning(pcap_file):
             if len(packets) > 5:
                 warning_issued = True
                 print(f"Warning: Potential ARP poisoning detected! Message '{message}' appears {len(packets)} times.")
-                print("Sample packets:")
+                print("Potential ARP poisoning packets:")
                 for pkt in packets[:5]:  # Print up to 5 packets
                     print(f"  - {pkt.summary()}")
 
