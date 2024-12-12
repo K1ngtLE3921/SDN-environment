@@ -7,6 +7,8 @@ import socket
 import struct
 import fcntl
 import time
+import os
+import sys
 
 def reader(pcap_file):
     try:
