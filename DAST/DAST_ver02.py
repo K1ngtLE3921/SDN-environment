@@ -162,16 +162,37 @@ def detect_dos_attacks(pcap_file):
     try:
         packets = rdpcap(pcap_file)  # Read packets from the pcap file
         ip_counts = Counter()  # Count occurrences of source IPs
+        dest_counts = Counter()  # Count occurrences of destination IPs for flagged sources
+        port_counts = Counter()  # Count destination ports for flagged sources
 
         for pkt in packets:
             if pkt.haslayer(IP):
-                ip_counts[pkt[IP].src] += 1
+                src_ip = pkt[IP].src
+                ip_counts[src_ip] += 1
+
+                if pkt[IP].dst:
+                    dest_counts[pkt[IP].dst] += 1
+
+                if pkt.haslayer('TCP') or pkt.haslayer('UDP'):
+                    if hasattr(pkt.payload, 'dport'):
+                        port_counts[pkt.payload.dport] += 1
 
         # Detect potential DoS attacks based on packet frequency
         print("\nDoS Attack Detection:")
         for ip, count in ip_counts.items():
             if count > 1000:  # Threshold for potential DoS attack
                 print(f"Warning: Potential DoS attack detected! Source IP {ip} sent {count} packets.")
+
+                # Additional details for the flagged IP
+                print(f"\tTop destination IPs targeted by {ip}:")
+                top_dest = dest_counts.most_common(3)
+                for dest_ip, dest_count in top_dest:
+                    print(f"\t- {dest_ip}: {dest_count} packets")
+
+                print(f"\tCommon destination ports targeted:")
+                top_ports = port_counts.most_common(3)
+                for port, port_count in top_ports:
+                    print(f"\t- Port {port}: {port_count} packets")
 
         if not any(count > 1000 for count in ip_counts.values()):
             print("No DoS attacks detected.")
